@@ -1,0 +1,26 @@
+{
+  "side": [
+    {
+      "id": "left-160x600",
+      "enabled": true,
+      "position": "left",
+      "width": 160,
+      "minWidth": 1280,
+      "snippet": "<a href=\"https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8581346895&itemId=24872730821&vendorItemId=91879636729&traceid=V0-153-ce635535e88230ff&requestid=20250905232951891138707164&token=31850C%7CMIXED\" target=\"_blank\" referrerpolicy=\"unsafe-url\"><img src=\"https://ads-partners.coupang.com/image1/AyTQAyEJ8uFGJfk-A4WT2P5SmlPI3jUr4cBm4XZEyovKukJ_HzBRfYU-oJnb10eozEVjNnb56wIo6DFget4yeZjtHgElu6ecC-U5ficCzsWKNWd5bUfKy3PQZkpsKqNqQYs7OTTt7SmNTuuX2FU79DWqD61MWh2rXK56AHHwELrReVzWT1zcS953b6605JTUCt0RBLhAIFOMb9QQgJY8kqMaKfGx925N4ZC0l6q_CC0kApTCGFNYwTyyxGxpzEQ9L3LvmHy-rNfim_iRyPFF_SG0Zgs=\" alt=\"[로켓프레시] 농협 무항생제 인증 신선 대란 3120g\" width=\"120\" height=\"240\"></a>"
+    },
+    {
+      "id": "right-160x600",
+      "enabled": true,
+      "position": "right",
+      "width": 160,
+      "minWidth": 1280,
+      "snippet": "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' data-ad-unit='UNIT_ID' data-ad-link-unit-id='LINK_ID' data-ad-order='5' data-ad-border='false'></ins>"
+    }
+  ],
+  "mobile": {
+    "enabled": true,
+    "maxWidth": 768,
+    "closeable": true,
+    "snippet": "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' data-ad-unit='UNIT_ID_M' data-ad-link-unit-id='LINK_ID_M' data-ad-order='5' data-ad-border='false'></ins>"
+  }
+}

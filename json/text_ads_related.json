@@ -1,0 +1,40 @@
+{
+  "ads": [
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8581346895&itemId=24872730821&vendorItemId=91879636729&traceid=V0-153-ce635535e88230ff&requestid=20250905230105612003960042&token=31850C%7CMIXED",
+      "content": "[로켓프레시] 농협 무항생제 인증 신선 대란 3120g 지금 주문하세요",
+      "backgroundColor": "linear-gradient(135deg, #43e97b, #38f9d7)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8479584475&itemId=24537415027&vendorItemId=91529248885&traceid=V0-153-ccd480d1ae60196a&clickBeacon=c3ea4890-8a60-11f0-9cdb-c07ba733a889%7E3&requestid=20250905230105612003960042&token=31850C%7CMIXED",
+      "content": "인기 [당일산란]영신팜스 무항생제 특란 계란 달걀, 30구, 2개 추천",
+      "backgroundColor": "linear-gradient(135deg, #ffecd2, #fcb69f)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8581346895&itemId=24910882624&vendorItemId=91917305017&traceid=V0-153-ce635535e88230ff&requestid=20250905230105612003960042&token=31850C%7CMIXED",
+      "content": "인기 [로켓프레시] 농협 무항생제 인증 신선 대란 3120g 추천",
+      "backgroundColor": "linear-gradient(135deg, #4ecdc4, #44a08d)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8479584475&itemId=26322245057&vendorItemId=93299614940&traceid=V0-153-ccd480d1ae60196a&clickBeacon=c3ea6fa0-8a60-11f0-ba98-fd08c0a5c493%7E3&requestid=20250905230105612003960042&token=31850C%7CMIXED",
+      "content": "인기 [당일산란]영신팜스 무항생제 특란 계란 달걀, 30구, 5개 추천",
+      "backgroundColor": "linear-gradient(135deg, #f093fb, #f5576c)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8581346895&itemId=24910882627&vendorItemId=91917305022&traceid=V0-153-ce635535e88230ff&requestid=20250905230105612003960042&token=31850C%7CMIXED",
+      "content": "[로켓프레시] 농협 무항생제 인증 신선 대란 3120g 지금 주문하세요",
+      "backgroundColor": "linear-gradient(135deg, #fa709a, #fee140)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8356274244&itemId=24145340043&vendorItemId=86459624028&traceid=V0-153-06b3cae2dc8c7a88&clickBeacon=c3ea6fa0-8a60-11f0-a1d0-8c0fdd3c5446%7E3&requestid=20250905230105612003960042&token=31850C%7CMIXED",
+      "content": "무항생제계란 당일생산당일출고 신선대란60구 90구 HACCP 청라상회골드계란, 2개, 30구 베스트 상품",
+      "backgroundColor": "linear-gradient(135deg, #fa709a, #fee140)"
+    }
+  ]
+}

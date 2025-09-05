@@ -1,0 +1,52 @@
+{
+  "ads": [
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=6671243928&itemId=19026712612&vendorItemId=3073291162&traceid=V0-193-3944ba2be632484c&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "가그린 제로 구강청결제, 1.2L, 2개 특가 할인!",
+      "backgroundColor": "linear-gradient(135deg, #f093fb, #f5576c)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=5490639891&itemId=18532601466&vendorItemId=85068501397&traceid=V0-193-2ff4a83138401e4a&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "광동제약 타우린 2000, 120ml, 20개 지금 주문하세요",
+      "backgroundColor": "linear-gradient(135deg, #fa709a, #fee140)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=7310276106&itemId=12487667305&vendorItemId=79756386830&traceid=V0-193-0fb28a47f34bb87f&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "티젠 콤부차 피치, 5g, 30개입, 1개 구매하기",
+      "backgroundColor": "linear-gradient(135deg, #f093fb, #f5576c)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=6792894587&itemId=16008987471&vendorItemId=91898471674&traceid=V0-193-c7c9cccdcb7a9ba1&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "미라네주방 미라클통 밀폐용기 세트, 1세트, 미라네 7호 세트 지금 주문하세요",
+      "backgroundColor": "linear-gradient(135deg, #667eea, #764ba2)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8773985820&itemId=25523705270&vendorItemId=91855119935&traceid=V0-193-6cf33760fdc35015&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "다우니 실내건조 초고농축 섬유유연제 프레시클린 리필, 4.1L, 1개 베스트 상품",
+      "backgroundColor": "linear-gradient(135deg, #ff6b6b, #ee5a24)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=1881067803&itemId=19770001140&vendorItemId=71183937349&traceid=V0-193-27653d7e52fad33c&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "아카페라 심플리 아메리카노 무라벨, 400ml, 20개 베스트 상품",
+      "backgroundColor": "linear-gradient(135deg, #43e97b, #38f9d7)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=7735164204&itemId=20795926254&vendorItemId=82974139854&traceid=V0-193-2b0627eb21ca7ebf&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "스타벅스 네스프레소 카페 베로나 캡슐커피, 5.5g, 10개입, 12개 특가 할인!",
+      "backgroundColor": "linear-gradient(135deg, #ffecd2, #fcb69f)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=80869659&itemId=258311321&vendorItemId=3627871532&traceid=V0-193-96d172372c307c49&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID",
+      "content": "키친웰 벨로스 세라믹 코팅 냄비 세트 3개, 베이지, 양수냄비 16cm + 20cm + 편수냄비 18cm, 1세트 최저가 도전",
+      "backgroundColor": "linear-gradient(135deg, #4facfe, #00f2fe)"
+    }
+  ]
+}

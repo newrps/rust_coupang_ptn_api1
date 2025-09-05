@@ -1,0 +1,64 @@
+{
+  "ads": [
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8474157902&itemId=24521096106&vendorItemId=91533821651&traceid=V0-153-0aaf516bf93d715b&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "오설록 오 땡큐 티 선물세트 최저가 도전",
+      "backgroundColor": "linear-gradient(135deg, #43e97b, #38f9d7)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8277543068&itemId=23861631282&vendorItemId=90884832639&traceid=V0-153-ce9e8a6d7450278d&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "그래놀라하우스 페이보릿셀렉션 오리지널 300g + 메이플피칸 300g + 쇼핑백 세트 최저가 도전",
+      "backgroundColor": "linear-gradient(135deg, #f093fb, #f5576c)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8469049249&itemId=24502552236&vendorItemId=90869175936&traceid=V0-153-e4c657934793c5da&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "인기 포이티 플라워티북 꽃차 7종 선물세트+쇼핑백 국산 추천",
+      "backgroundColor": "linear-gradient(135deg, #a8edea, #fed6e3)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=6598014505&itemId=14914865273&vendorItemId=82153226532&traceid=V0-153-6d3d52c98592226d&clickBeacon=c8dfacb0-8a64-11f0-ade3-01769c819806%7E3&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "한삼인 산삼배양근 골드, 1L, 1개 구매하기",
+      "backgroundColor": "linear-gradient(135deg, #43e97b, #38f9d7)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=6997397074&itemId=17147333192&vendorItemId=84320088709&traceid=V0-153-ac9cce597a150f71&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "[로켓프레시] 후앙 랑그드샤 쿠키 130 x 3종 세트 최저가 도전",
+      "backgroundColor": "linear-gradient(135deg, #fa709a, #fee140)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=6598014505&itemId=18764160070&vendorItemId=85895964105&traceid=V0-153-6d3d52c98592226d&clickBeacon=c8dfacb0-8a64-11f0-8696-89332a49b4b4%7E3&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "한삼인 산삼배양근 골드, 1L, 2세트 최저가 도전",
+      "backgroundColor": "linear-gradient(135deg, #ffecd2, #fcb69f)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8059797387&itemId=22636213086&vendorItemId=89677290099&traceid=V0-153-dfeb8d76f87d71f8&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "[로켓프레시] 베키아에누보 랑드샤 쿠키 2종 선물세트 최저가 도전",
+      "backgroundColor": "linear-gradient(135deg, #4facfe, #00f2fe)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=7774090970&itemId=20995686196&vendorItemId=92077527830&traceid=V0-153-94bc7ffac15b18c1&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "그래인스쿠키 샤르망 쿠키 세트 특가 할인!",
+      "backgroundColor": "linear-gradient(135deg, #667eea, #764ba2)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8163409400&itemId=23283676530&vendorItemId=90978814554&traceid=V0-153-074afb43b7ffda7f&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "동구밭 포레스트 빌리지 우디 퍼퓸바 바디케어 선물세트 베스트 상품",
+      "backgroundColor": "linear-gradient(135deg, #f093fb, #f5576c)"
+    },
+    {
+      "type": "text",
+      "url": "https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=8289313766&itemId=16737399151&vendorItemId=83919322544&traceid=V0-153-b8c47d5167c8b6b0&requestid=20250905232951976012922164&token=31850C%7CMIXED",
+      "content": "피터래빗 럭셔리 웨이퍼 롤 4종 특가 할인!",
+      "backgroundColor": "linear-gradient(135deg, #4ecdc4, #44a08d)"
+    }
+  ]
+}

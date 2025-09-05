@@ -1,0 +1,52 @@
+{
+  "side": [
+    {
+      "id": "left-160x600-1",
+      "enabled": true,
+      "position": "left",
+      "width": 160,
+      "minWidth": 1280,
+      "snippet": "<a href=\"https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=6671243928&itemId=19026712612&vendorItemId=3073291162&traceid=V0-193-3944ba2be632484c&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID\" target=\"_blank\" referrerpolicy=\"unsafe-url\"><img src=\"https://ads-partners.coupang.com/openapi/image/bZAypiPmzn1LqVw7bX3ua4KAUYd0b1yVZOWXiu0sgPxjMWfrmlmlZOG1a5dPejs42pB3tXBbfcwbAze5Kqpt2qaJrI7R1-AEQdhk_S77QVqa5Tor9SGGigyZpemF5Dy8PpaL1yKUfoD0Gq6HjHPj_G93f2TBM7id-JS8tWNxJxMTmwjFMiIsLdL1FPZ7KejypMqYZpK7CVQfufM1dAE_oHxSze0esqxQR8Nyb7OYP5bmQwbmssIvUc5uTpiPb8-fDRFmRH5o86qWsuBEPffCxOOf7TB28hgjPnnGYu9wNZwiQ4u6t0Et4FQlD_2PqXVEUhqHYIlPwNNYuEPaE2jbnocc0sAXuX4s6x8HvCPKSop2Tnu_aYrhCfrLSA-s\" alt=\"가그린 제로 구강청결제, 1.2L, 2개\" width=\"120\" height=\"240\"></a>"
+    },
+    {
+      "id": "left-160x600-2",
+      "enabled": true,
+      "position": "left",
+      "width": 160,
+      "minWidth": 1280,
+      "snippet": "<a href=\"https://link.coupang.com/re/AFFSDP?lptag=AF0680713&pageKey=5490639891&itemId=18532601466&vendorItemId=85068501397&traceid=V0-193-2ff4a83138401e4a&requestId=20250905232952047294108088&token=57579G&puid=user-123456&puidType=PUID\" target=\"_blank\" referrerpolicy=\"unsafe-url\"><img src=\"https://ads-partners.coupang.com/openapi/image/t87QlhLfr5CFGJjxt581tfbuWRyeAkWhyUsnYsHPr1DEdUKR9t1vJXOGCp8TDbkBmuDkBSPcqvseXprLRjHwYwca9_Ue8iPQhbwsvvsgkhVQt_t5v5RO9uGkNu9YLhZFJ-N3ZdbCMJbV3VdD3Hh1f1s130ERuh7decM-DwBGYS2rJ-3sgTsmpvTRKtIZvjXG7K2T9FURqbrQS_PwzkyBgKm3R-srSAZ2_N65H8hy8dnV34sPvSRPWo0yJcY6Wv8hhurXolLga2KwyL-Zys5TDJchYbZTHTvTZO9XOO5GBkuq2SKqVOta7TYA5gJhu1TTJKcPbqZLxCkHokNBKQlKWn_5QNOsqaaLLKX7X20fggU=\" alt=\"광동제약 타우린 2000, 120ml, 20개\" width=\"120\" height=\"240\"></a>"
+    },
+    {
+      "id": "right-160x600-1",
+      "enabled": true,
+      "position": "right",
+      "width": 160,
+      "minWidth": 1280,
+      "snippet": "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' data-ad-unit='UNIT_ID' data-ad-link-unit-id='LINK_ID' data-ad-order='5' data-ad-border='false'></ins>"
+    },
+    {
+      "id": "right-160x600-2",
+      "enabled": true,
+      "position": "right",
+      "width": 160,
+      "minWidth": 1280,
+      "snippet": "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' data-ad-unit='UNIT_ID_2' data-ad-link-unit-id='LINK_ID_2' data-ad-order='5' data-ad-border='false'></ins>"
+    }
+  ],
+  "mobile": [
+    {
+      "id": "mobile-320x100-1",
+      "enabled": true,
+      "maxWidth": 768,
+      "closeable": true,
+      "snippet": "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' data-ad-unit='UNIT_ID_M' data-ad-link-unit-id='LINK_ID_M' data-ad-order='5' data-ad-border='false'></ins>"
+    },
+    {
+      "id": "mobile-320x100-2",
+      "enabled": true,
+      "maxWidth": 768,
+      "closeable": true,
+      "snippet": "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' data-ad-unit='UNIT_ID_M_2' data-ad-link-unit-id='LINK_ID_M_2' data-ad-order='5' data-ad-border='false'></ins>"
+    }
+  ]
+}
