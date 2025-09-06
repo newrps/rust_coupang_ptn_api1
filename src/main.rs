@@ -13,10 +13,12 @@ use std::env;
 use std::{fs, path::Path};
 use regex::Regex;
 type HmacSha256 = Hmac<Sha256>;
-use serde::{Serialize, Deserialize, de::{self, Deserializer}};
-use std::fmt;
+use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
 
+/// html_escape 사용 (Cargo.toml에 `html_escape = "0.2"` 추가 필요)
+/// features: 없음
+use html_escape;
 
 #[allow(non_snake_case)]
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -34,7 +36,7 @@ pub struct SideBannerJsonMulti {
     pub mobile: Vec<MobileBannerItem>,     // 모바일 여러 개
 }
 
-// ---------------- 추천 응답 스키마 ----------------
+// ---------------- 추천 컨텍스트(옵션적) ----------------
 #[derive(Debug, Clone)]
 pub struct SiteInfo {
     pub domain: String,         // 추천: 최상위 도메인
@@ -92,37 +94,29 @@ pub struct RecoContext {
 }
 
 impl RecoContext {
-    /// 스펙 기반 유효성 검사
     pub fn validate(&self) -> anyhow::Result<()> {
-        // Device.lmt: 0 or 1
         if self.device.lmt != 0 && self.device.lmt != 1 {
             anyhow::bail!("Device.lmt는 0 또는 1이어야 합니다 (현재: {}).", self.device.lmt);
         }
-        // Device.id: 형식 대략 점검 (32 or 36자 UUID 허용)
         let len = self.device.id.len();
         if !(len == 32 || len == 36) {
             eprintln!("[WARN] Device.id 길이 비표준({}); GAID/IDFA가 맞는지 확인하세요.", len);
         }
-        // Imp.imageSize: "WxH"
         let re_img = Regex::new(r"^\d+x\d+$").unwrap();
         if !re_img.is_match(&self.imp.image_size) {
             anyhow::bail!("Imp.imageSize 형식 오류: \"{}\" (예: \"512x512\")", self.imp.image_size);
         }
-        // Imp.adType: 허용값
         if let Some(t) = self.imp.ad_type {
             if !(1..=7).contains(&t) {
                 anyhow::bail!("Imp.adType 허용 범위는 1..=7 입니다 (현재: {}).", t);
             }
         }
-        // Imp.pos: 허용값
         if let Some(p) = self.imp.pos {
             match p { 1 | 3 | 4 | 5 | 6 | 7 => {}, _ => anyhow::bail!("Imp.pos 허용값: 1,3,4,5,6,7 (현재: {}).", p) }
         }
-        // User.puid: 공란 불가
         if self.user.puid.trim().is_empty() {
             anyhow::bail!("User.puid는 필수입니다.");
         }
-        // Inventory: 기본 필드 공란 체크
         match &self.inventory {
             Inventory::Site(s) => {
                 if s.domain.trim().is_empty() { anyhow::bail!("Site.domain은 비어있을 수 없습니다."); }
@@ -136,10 +130,6 @@ impl RecoContext {
         Ok(())
     }
 
-    /// API 쿼리 파라미터로 평탄화
-    ///
-    /// 주의: 실제 키 이름은 API 문서 정의에 맞춰 바꾸면 됩니다.
-    /// 여기서는 직관적인 키로 매핑했습니다.
     pub fn into_query_map(self) -> HashMap<String, String> {
         let mut m = HashMap::new();
 
@@ -156,22 +146,18 @@ impl RecoContext {
             }
         }
 
-        // Device
         m.insert("deviceId".into(), self.device.id);
         m.insert("lmt".into(), self.device.lmt.to_string());
         if let Some(ip) = self.device.ip { m.insert("ip".into(), ip); }
         if let Some(ua) = self.device.ua { m.insert("ua".into(), ua); }
 
-        // Imp
         if let Some(t) = self.imp.ad_type { m.insert("adType".into(), t.to_string()); }
         m.insert("imageSize".into(), self.imp.image_size);
         if let Some(pid) = self.imp.placement_id { m.insert("placementId".into(), pid); }
         if let Some(pos) = self.imp.pos { m.insert("pos".into(), pos.to_string()); }
 
-        // User
         m.insert("puid".into(), self.user.puid);
 
-        // Affiliate
         if let Some(aff) = self.affiliate {
             if let Some(s)  = aff.sub_id     { m.insert("subId".into(), s); }
             if let Some(sp) = aff.sub_param  { m.insert("subParam".into(), sp); }
@@ -180,7 +166,6 @@ impl RecoContext {
         m
     }
 }
-
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct ProductRecoData {
@@ -312,6 +297,20 @@ pub struct TextAdItem {
 pub struct TextAdsJson {
     pub ads: Vec<TextAdItem>,
 }
+
+// ---------------- 공통 헬퍼: 숫자/URL/바디 빌드 ----------------
+
+fn value_num_to_u64(v: &serde_json::Value) -> Option<u64> {
+    if let Some(u) = v.as_u64() { return Some(u); }
+    if let Some(f) = v.as_f64() { if f.is_finite() { return Some(f.round() as u64); } }
+    if let Some(s) = v.as_str() {
+        let t = s.trim().replace(",", "");
+        if let Ok(u) = t.parse::<u64>() { return Some(u); }
+        if let Ok(f) = t.parse::<f64>() { if f.is_finite() { return Some(f.round() as u64); } }
+    }
+    None
+}
+
 fn build_reco_body_from_map(mut m: HashMap<String, String>) -> Value {
     let mut root = json!({});
 
@@ -320,7 +319,7 @@ fn build_reco_body_from_map(mut m: HashMap<String, String>) -> Value {
     if let Some(id) = m.remove("deviceId") { device["id"] = Value::String(id); }
     if let Some(lmt_s) = m.remove("lmt") {
         if let Ok(n) = lmt_s.parse::<u8>() { device["lmt"] = Value::Number(n.into()); }
-        else { device["lmt"] = Value::String(lmt_s); } // 마지막 보루
+        else { device["lmt"] = Value::String(lmt_s); }
     }
     if let Some(ip) = m.remove("ip")  { device["ip"]  = Value::String(ip); }
     if let Some(ua) = m.remove("ua")  { device["ua"]  = Value::String(ua); }
@@ -352,7 +351,6 @@ fn build_reco_body_from_map(mut m: HashMap<String, String>) -> Value {
     }
 
     // --- site / app ---
-    // Site: siteDomain, siteId, page
     let mut site = json!({});
     if let Some(s) = m.remove("siteDomain") { site["domain"] = Value::String(s); }
     if let Some(s) = m.remove("siteId")     { site["id"]     = Value::String(s); }
@@ -361,7 +359,6 @@ fn build_reco_body_from_map(mut m: HashMap<String, String>) -> Value {
         root["site"] = site;
     }
 
-    // App: bundleId, appDomain/domain, appId
     let mut app = json!({});
     if let Some(s) = m.remove("bundleId") { app["bundleId"] = Value::String(s); }
     if let Some(s) = m.remove("appDomain").or_else(|| m.remove("domain")) {
@@ -386,66 +383,6 @@ fn build_reco_body_from_map(mut m: HashMap<String, String>) -> Value {
     root
 }
 
-// ---------------- 빌더 유틸 ----------------
-
-/// 고정 배너/스니펫을 사용해 (A) 형태의 JSON을 생성
-pub fn build_side_banner_json(
-    left_aff_link: &str,
-    left_img_src: &str,
-    left_img_alt: &str,
-    right_unit_id: &str,
-    right_link_unit_id: &str,
-    mobile_unit_id: &str,
-    mobile_link_unit_id: &str,
-) -> SideBannerJson {
-    let left_snippet = format!(
-        "<a href=\"{}\" target=\"_blank\" referrerpolicy=\"unsafe-url\"><img src=\"{}\" alt=\"{}\" width=\"120\" height=\"240\"></a>",
-        left_aff_link, left_img_src, html_escape::encode_text(left_img_alt)
-    );
-
-    let right_snippet = format!(
-        "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
-        right_unit_id, right_link_unit_id
-    );
-
-    let mobile_snippet = format!(
-        "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
-        mobile_unit_id, mobile_link_unit_id
-    );
-
-    SideBannerJson {
-        side: vec![
-            SideBannerItem {
-                id: "left-160x600".to_string(),
-                enabled: true,
-                position: "left".to_string(),
-                width: 160,
-                minWidth: 1280,
-                snippet: left_snippet,
-            },
-            SideBannerItem {
-                id: "right-160x600".to_string(),
-                enabled: true,
-                position: "right".to_string(),
-                width: 160,
-                minWidth: 1280,
-                snippet: right_snippet,
-            },
-        ],
-        mobile: MobileBanner {
-            enabled: true,
-            maxWidth: 768,
-            closeable: true,
-            snippet: mobile_snippet,
-        },
-    }
-}
-
-/// (B) 형태의 텍스트 광고 JSON을 생성
-pub fn build_text_ads_json(items: Vec<TextAdItem>) -> TextAdsJson {
-    TextAdsJson { ads: items }
-}
-
 // ---------------- 광고 생성 유틸 ----------------
 
 fn is_affiliate_link(u: &str) -> bool {
@@ -464,9 +401,7 @@ fn is_detailish(u: &str) -> bool {
 fn truncate_title(s: &str, max: usize) -> String {
     let mut out = String::new();
     for (i, ch) in s.chars().enumerate() {
-        if i >= max {
-            break;
-        }
+        if i >= max { break; }
         out.push(ch);
     }
     if s.chars().count() > max {
@@ -507,326 +442,91 @@ pub fn generate_ad_content(product_name: &str) -> String {
     let template = templates[rng.gen_range(0..templates.len())];
     template.replace("{}", product_name)
 }
-// 추천이 비면 상품명으로 재검색해서 대체
-async fn reco_or_search_fallback(
-    client: &CoupangApiClient,
-    base_product: &ProductItem,
-    limit: u32,
-) -> anyhow::Result<Vec<ProductItem>> {
-    // USE_RECO=1 인 경우에만 추천 시도 (기본은 검색 폴백)
-    let use_reco = std::env::var("USE_RECO").unwrap_or_else(|_| "0".to_string()) == "1";
 
-    if use_reco {
-        // 환경변수에서 필수 파라미터 4종을 모두 읽어온 경우에만 추천 시도
-        let device_id = std::env::var("RECO_DEVICE_ID").ok();
-        let lmt       = std::env::var("RECO_LMT").ok();
-        let image_sz  = std::env::var("RECO_IMAGE_SIZE").ok();
-        let puid      = std::env::var("RECO_PUID").ok();
-
-        if let (Some(dev), Some(lmt), Some(img), Some(puid)) = (device_id, lmt, image_sz, puid) {
-            let mut params = std::collections::HashMap::new();
-            if let Some(id) = base_product.product_id {
-                params.insert("productId".to_string(), id.to_string());
-            }
-            params.insert("limit".to_string(), limit.to_string());
-            params.insert("deviceId".to_string(), dev);
-            params.insert("lmt".to_string(), lmt);
-            params.insert("imageSize".to_string(), img);
-            params.insert("puid".to_string(), puid);
-            if let Ok(sub) = std::env::var("RECO_SUB_ID") {
-                params.insert("subId".to_string(), sub);
-            }
-
-            // recoType은 넣지 않고 먼저 시도 → 필요하면 호출부에서 넣어도 됨
-            let reco = client.recommend_products(params).await?;
-            if !reco.is_empty() {
-                return Ok(reco);
-            }
-            eprintln!("[RECO] 빈 결과 → 검색 폴백으로 전환합니다.");
-        } else {
-            eprintln!("[RECO] 필수 env(RECO_DEVICE_ID/RECO_LMT/RECO_IMAGE_SIZE/RECO_PUID) 중 일부가 비어 있어 추천을 생략합니다.");
-        }
+/// 이미 딥링크면 그대로, 아니면 딥링크 생성 시도(실패 시 원본 URL 유지)
+// ★ to_affiliate 적용: 모든 출력 URL에 사용
+async fn to_affiliate(client: &CoupangApiClient, url: &str) -> String {
+    if is_affiliate_link(url) {
+        return url.to_string();
     }
-
-    // 폴백: 상품명으로 검색
-    let kw = base_product.product_name.as_deref().unwrap_or("").trim();
-    if kw.is_empty() {
-        eprintln!("[FALLBACK] 상품명이 없어 재검색도 불가.");
-        return Ok(vec![]);
-    }
-    eprintln!("[FALLBACK] 검색 키워드='{}' (limit={})", kw, limit);
-    let items = client.search_products(kw, limit).await?;
-    Ok(items)
-}
-
-/// 검색 결과 → 사이드/모바일 배너 JSON
-async fn build_side_banner_from_products(
-    client: &CoupangApiClient,
-    products: &[ProductItem],
-    right_unit_id: &str,
-    right_link_unit_id: &str,
-    mobile_unit_id: &str,
-    mobile_link_unit_id: &str,
-) -> Result<SideBannerJson> {
-    // 상세로 간주되는 URL이 있는 첫 상품을 선택
-    let pick = products.iter().find(|p| {
-        p.product_url
-            .as_deref()
-            .map(|u| is_detailish(u))
-            .unwrap_or(false)
-    });
-    let p = pick.ok_or_else(|| anyhow::anyhow!("상세 상품 URL이 포함된 검색 결과가 없습니다."))?;
-
-    let title = truncate_title(p.product_name.as_deref().unwrap_or("상품"), 40);
-    let img = p.product_image.as_deref().unwrap_or("");
-    let url = p.product_url.as_deref().unwrap_or("");
-
-    // 이미 파트너스 링크면 그대로, 아니면 딥링크 시도 → 실패 시 원본 사용
-    let left_link = if is_affiliate_link(url) {
-        url.to_string()
-    } else {
-        match client.create_deeplink_one(url).await {
-            Ok(d) => d.shorten_url,
-            Err(_) => url.to_string(),
-        }
-    };
-
-    Ok(build_side_banner_json(
-        &left_link,
-        img,
-        &title,
-        right_unit_id,
-        right_link_unit_id,
-        mobile_unit_id,
-        mobile_link_unit_id,
-    ))
-}
-
-/// 검색 결과 → 텍스트 광고 JSON
-pub async fn products_to_text_ads_json(
-    client: &CoupangApiClient,
-    products: Vec<ProductItem>,
-) -> Result<TextAdsJson> {
-    let mut text_ads = Vec::new();
-    for product in products {
-        if let (Some(name), Some(url)) = (product.product_name.clone(), product.product_url.clone())
-        {
-            let final_url = if is_affiliate_link(&url) {
-                url
-            } else {
-                match client.create_deeplink_one(&url).await {
-                    Ok(d) => d.shorten_url,
-                    Err(_) => url,
-                }
-            };
-
-            text_ads.push(TextAdItem {
-                kind: "text".to_string(),
-                url: final_url,
-                content: generate_ad_content(&name),
-                backgroundColor: generate_random_gradient(),
-            });
-        }
-    }
-    Ok(TextAdsJson { ads: text_ads })
-}
-
-/// JSON 저장
-pub fn save_json_to_file<T: serde::Serialize>(data: &T, filename: &str) -> Result<()> {
-    if let Some(parent) = Path::new(filename).parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
-    }
-    let json_string = serde_json::to_string_pretty(data)?;
-    fs::write(filename, json_string)?;
-    println!("JSON 저장: {}", filename);
-    Ok(())
-}
-/// 여러 개의 좌/우 배너와 여러 개의 모바일 배너를 한 번에 생성
-///
-/// - left_blocks: (affiliate_link, img_src, img_alt)
-/// - right_units: (unit_id, link_unit_id)
-/// - mobile_units: (unit_id, link_unit_id)
-pub fn build_side_banner_json_multi(
-    left_blocks: Vec<(String, String, String)>,
-    right_units: Vec<(String, String)>,
-    mobile_units: Vec<(String, String)>,
-) -> SideBannerJsonMulti {
-    // 좌측: 160x600 이미지 배너 (affiliate 링크 + 이미지)
-    let mut side_items: Vec<SideBannerItem> = Vec::new();
-    for (idx, (aff_link, img_src, img_alt)) in left_blocks.into_iter().enumerate() {
-        let id = format!("left-160x600-{}", idx + 1);
-        let snippet = format!(
-            "<a href=\"{}\" target=\"_blank\" referrerpolicy=\"unsafe-url\">\
-             <img src=\"{}\" alt=\"{}\" width=\"120\" height=\"240\"></a>",
-            aff_link,
-            img_src,
-            html_escape::encode_text(&img_alt)
-        );
-        side_items.push(SideBannerItem {
-            id,
-            enabled: true,
-            position: "left".to_string(),
-            width: 160,
-            minWidth: 1280,
-            snippet,
-        });
-    }
-
-    // 우측: 160x600 쿠팡 고정 유닛 여러 개
-    for (idx, (unit_id, link_unit_id)) in right_units.into_iter().enumerate() {
-        let id = format!("right-160x600-{}", idx + 1);
-        let snippet = format!(
-            "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' \
-             data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
-            unit_id, link_unit_id
-        );
-        side_items.push(SideBannerItem {
-            id,
-            enabled: true,
-            position: "right".to_string(),
-            width: 160,
-            minWidth: 1280,
-            snippet,
-        });
-    }
-
-    // 모바일: 320x100 유닛 여러 개
-    let mut mobile_items: Vec<MobileBannerItem> = Vec::new();
-    for (idx, (unit_id, link_unit_id)) in mobile_units.into_iter().enumerate() {
-        let id = format!("mobile-320x100-{}", idx + 1);
-        let snippet = format!(
-            "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' \
-             data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
-            unit_id, link_unit_id
-        );
-        mobile_items.push(MobileBannerItem {
-            id,
-            enabled: true,
-            maxWidth: 768,
-            closeable: true,
-            snippet,
-        });
-    }
-
-    SideBannerJsonMulti {
-        side: side_items,
-        mobile: mobile_items,
+    match client.create_deeplink_one(url).await {
+        Ok(d) => d.shorten_url,
+        Err(_) => url.to_string(),
     }
 }
-
-fn value_num_to_u64(v: &serde_json::Value) -> Option<u64> {
-    if let Some(u) = v.as_u64() { return Some(u); }
-    if let Some(f) = v.as_f64() { if f.is_finite() { return Some(f.round() as u64); } }
-    if let Some(s) = v.as_str() {
-        let t = s.trim().replace(",", "");
-        if let Ok(u) = t.parse::<u64>() { return Some(u); }
-        if let Ok(f) = t.parse::<f64>() { if f.is_finite() { return Some(f.round() as u64); } }
-    }
-    None
-}
-
 
 // ---------------- CoupangApiClient 구현 ----------------
 
 impl CoupangApiClient {
-    /// 추천 상품 조회
-    ///
-    /// GET /v2/providers/affiliate_open_api/apis/openapi/v2/products/reco
-pub async fn recommend_products(
-    &self,
-    mut query_params: HashMap<String, String>,
-) -> Result<Vec<ProductItem>> {
-    // 기본값
-    query_params.entry("limit".into()).or_insert_with(|| "10".into());
+    /// 추천 상품 조회 (POST)
+    pub async fn recommend_products(
+        &self,
+        mut query_params: HashMap<String, String>,
+    ) -> Result<Vec<ProductItem>> {
+        query_params.entry("limit".into()).or_insert_with(|| "10".into());
 
-    // 바디 생성 (flat → nested)
-    let body = build_reco_body_from_map(query_params);
-    eprintln!("[RECO] (POST) body = {}", body);
+        let body = build_reco_body_from_map(query_params);
+        eprintln!("[RECO] (POST) body = {}", body);
 
-    let resp_text = self
-        .call_api(
-            "POST",
-            "/v2/providers/affiliate_open_api/apis/openapi/v2/products/reco",
-            Some(body),
-            None,
-        )
-        .await?;
+        let resp_text = self
+            .call_api(
+                "POST",
+                "/v2/providers/affiliate_open_api/apis/openapi/v2/products/reco",
+                Some(body),
+                None,
+            )
+            .await?;
 
-    let v: Value = match serde_json::from_str(&resp_text) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("[RECO][ERR] non-JSON ({}) head: {}", e, resp_text.chars().take(220).collect::<String>());
-            return Err(anyhow::anyhow!("recommend_products: invalid JSON"));
+        let v: Value = match serde_json::from_str(&resp_text) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("[RECO][ERR] non-JSON ({}) head: {}", e, resp_text.chars().take(220).collect::<String>());
+                return Err(anyhow::anyhow!("recommend_products: invalid JSON"));
+            }
+        };
+
+        let r_code = v.get("rCode").and_then(|x| x.as_str()).unwrap_or("");
+        let r_msg  = v.get("rMessage").and_then(|x| x.as_str()).unwrap_or("");
+        if !r_code.is_empty() || !r_msg.is_empty() {
+            eprintln!("[RECO] rCode={}, rMessage={}", r_code, r_msg);
         }
-    };
 
-    let r_code = v.get("rCode").and_then(|x| x.as_str()).unwrap_or("");
-    let r_msg  = v.get("rMessage").and_then(|x| x.as_str()).unwrap_or("");
-    if !r_code.is_empty() || !r_msg.is_empty() {
-        eprintln!("[RECO] rCode={}, rMessage={}", r_code, r_msg);
-    }
+        // data.productData / productData / data.products / data.result
+        let arrays = [
+            v.get("data").and_then(|d| d.get("productData")).and_then(|a| a.as_array()),
+            v.get("productData").and_then(|a| a.as_array()),
+            v.get("data").and_then(|d| d.get("products")).and_then(|a| a.as_array()),
+            v.get("data").and_then(|d| d.get("result")).and_then(|a| a.as_array()),
+        ];
 
-    // 배열 경로: data.productData / productData / data.products / **data.result**
-    let arrays = [
-        v.get("data").and_then(|d| d.get("productData")).and_then(|a| a.as_array()),
-        v.get("productData").and_then(|a| a.as_array()),
-        v.get("data").and_then(|d| d.get("products")).and_then(|a| a.as_array()),
-        v.get("data").and_then(|d| d.get("result")).and_then(|a| a.as_array()), // ← 추가
-    ];
-
-    let mut items = Vec::<ProductItem>::new();
-    if let Some(arr) = arrays.into_iter().flatten().next() {
-        for it in arr {
-            let item = ProductItem {
-                product_id: it.get("productId").and_then(|x| x.as_u64()),
-                product_name: it.get("productName").and_then(|x| x.as_str()).map(|s| s.to_string()),
-                product_url: it.get("productUrl").and_then(|x| x.as_str()).map(|s| s.to_string()),
-                product_image: it
-                    .get("productImage")
-                    .or_else(|| it.get("imageUrl"))
-                    .and_then(|x| x.as_str()).map(|s| s.to_string()),
-                product_price: it.get("productPrice").and_then(|x| value_num_to_u64(x)),
-                original_price: it.get("originalPrice").and_then(|x| value_num_to_u64(x)),
-                discount_rate: it.get("discountRate").map(|x| match x {
-                    Value::String(s) => Some(s.clone()),
-                    Value::Number(n) => Some(n.to_string()),
-                    _ => None,
-                }).flatten(),
-            };
-            items.push(item);
+        let mut items = Vec::<ProductItem>::new();
+        if let Some(arr) = arrays.into_iter().flatten().next() {
+            for it in arr {
+                let item = ProductItem {
+                    product_id: it.get("productId").and_then(|x| x.as_u64()),
+                    product_name: it.get("productName").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                    product_url: it.get("productUrl").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                    product_image: it
+                        .get("productImage")
+                        .or_else(|| it.get("imageUrl"))
+                        .and_then(|x| x.as_str()).map(|s| s.to_string()),
+                    product_price: it.get("productPrice").and_then(|x| value_num_to_u64(x)),
+                    original_price: it.get("originalPrice").and_then(|x| value_num_to_u64(x)),
+                    discount_rate: it.get("discountRate").map(|x| match x {
+                        Value::String(s) => Some(s.clone()),
+                        Value::Number(n) => Some(n.to_string()),
+                        _ => None,
+                    }).flatten(),
+                };
+                items.push(item);
+            }
+        } else {
+            eprintln!("[RECO] no product array found. head: {}", resp_text.chars().take(220).collect::<String>());
         }
-    } else {
-        eprintln!("[RECO] no product array found. head: {}", resp_text.chars().take(220).collect::<String>());
+
+        eprintln!("[RECO] parsed {} items", items.len());
+        Ok(items)
     }
-
-    eprintln!("[RECO] parsed {} items", items.len());
-    Ok(items)
-}
-
-
-
-
-// 작은 유틸: &[Value]를 Value(Array) 참조로 감싸기 위한 헬퍼
-fn pd_to_val<'a>(a: &'a Vec<serde_json::Value>) -> &'a serde_json::Value {
-    // 안전하게 참조를 돌려주기 위해 원본을 그대로 &Value로 캐스팅
-    // (여기선 사용 편의를 위해 타입 보조자 역할만 수행; 직접 복사 없이 위에서 바로 iterate해도 OK)
-    unsafe { &*(a as *const _ as *const serde_json::Value) }
-}
-
-// 숫자 파서(정수/실수/문자열 모두 u64로)
-fn value_num_to_u64(v: &serde_json::Value) -> Option<u64> {
-    if let Some(u) = v.as_u64() { return Some(u); }
-    if let Some(f) = v.as_f64() { if f.is_finite() { return Some(f.round() as u64); } }
-    if let Some(s) = v.as_str() {
-        let t = s.trim().replace(",", "");
-        if let Ok(u) = t.parse::<u64>() { return Some(u); }
-        if let Ok(f) = t.parse::<f64>() { if f.is_finite() { return Some(f.round() as u64); } }
-    }
-    None
-}
-
 
     pub fn new(access_key: String, secret_key: String) -> Self {
         Self {
@@ -847,7 +547,6 @@ fn value_num_to_u64(v: &serde_json::Value) -> Option<u64> {
 
     /// CEA 시그니처 (쉼표 뒤 공백 없음!)
     fn generate_hmac_signature(&self, method: &str, uri: &str) -> Result<String> {
-        // uri = path[?query]
         let parts: Vec<&str> = uri.split('?').collect();
         if parts.len() > 2 {
             return Err(anyhow::anyhow!("Incorrect URI format"));
@@ -894,7 +593,6 @@ fn value_num_to_u64(v: &serde_json::Value) -> Option<u64> {
     }
 
     pub async fn create_deeplink_one(&self, url: &str) -> Result<DeeplinkItem> {
-        // 이미 트래킹 링크면 그대로 반환
         if is_affiliate_link(url) {
             return Ok(DeeplinkItem {
                 original_url: url.to_string(),
@@ -997,6 +695,201 @@ fn value_num_to_u64(v: &serde_json::Value) -> Option<u64> {
     }
 }
 
+// ---------------- 빌더들 ----------------
+
+/// 고정 배너/스니펫을 사용해 (A) 형태의 JSON을 생성
+pub fn build_side_banner_json(
+    left_aff_link: &str,
+    left_img_src: &str,
+    left_img_alt: &str,
+    right_unit_id: &str,
+    right_link_unit_id: &str,
+    mobile_unit_id: &str,
+    mobile_link_unit_id: &str,
+) -> SideBannerJson {
+    let left_snippet = format!(
+        "<a href=\"{}\" target=\"_blank\" referrerpolicy=\"unsafe-url\"><img src=\"{}\" alt=\"{}\" width=\"120\" height=\"240\"></a>",
+        left_aff_link, left_img_src, html_escape::encode_text(left_img_alt)
+    );
+
+    let right_snippet = format!(
+        "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
+        right_unit_id, right_link_unit_id
+    );
+
+    let mobile_snippet = format!(
+        "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
+        mobile_unit_id, mobile_link_unit_id
+    );
+
+    SideBannerJson {
+        side: vec![
+            SideBannerItem {
+                id: "left-160x600".to_string(),
+                enabled: true,
+                position: "left".to_string(),
+                width: 160,
+                minWidth: 1280,
+                snippet: left_snippet,
+            },
+            SideBannerItem {
+                id: "right-160x600".to_string(),
+                enabled: true,
+                position: "right".to_string(),
+                width: 160,
+                minWidth: 1280,
+                snippet: right_snippet,
+            },
+        ],
+        mobile: MobileBanner {
+            enabled: true,
+            maxWidth: 768,
+            closeable: true,
+            snippet: mobile_snippet,
+        },
+    }
+}
+
+/// (B) 형태의 텍스트 광고 JSON을 생성
+pub fn build_text_ads_json(items: Vec<TextAdItem>) -> TextAdsJson {
+    TextAdsJson { ads: items }
+}
+
+/// 여러 개의 좌/우 배너와 여러 개의 모바일 배너를 한 번에 생성
+pub fn build_side_banner_json_multi(
+    left_blocks: Vec<(String, String, String)>, // (aff_link, img_src, img_alt)
+    right_units: Vec<(String, String)>,         // (unit_id, link_unit_id)
+    mobile_units: Vec<(String, String)>,        // (unit_id, link_unit_id)
+) -> SideBannerJsonMulti {
+    let mut side_items: Vec<SideBannerItem> = Vec::new();
+    for (idx, (aff_link, img_src, img_alt)) in left_blocks.into_iter().enumerate() {
+        let id = format!("left-160x600-{}", idx + 1);
+        let snippet = format!(
+            "<a href=\"{}\" target=\"_blank\" referrerpolicy=\"unsafe-url\">\
+             <img src=\"{}\" alt=\"{}\" width=\"120\" height=\"240\"></a>",
+            aff_link,
+            img_src,
+            html_escape::encode_text(&img_alt)
+        );
+        side_items.push(SideBannerItem {
+            id,
+            enabled: true,
+            position: "left".to_string(),
+            width: 160,
+            minWidth: 1280,
+            snippet,
+        });
+    }
+
+    for (idx, (unit_id, link_unit_id)) in right_units.into_iter().enumerate() {
+        let id = format!("right-160x600-{}", idx + 1);
+        let snippet = format!(
+            "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' \
+             data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
+            unit_id, link_unit_id
+        );
+        side_items.push(SideBannerItem {
+            id,
+            enabled: true,
+            position: "right".to_string(),
+            width: 160,
+            minWidth: 1280,
+            snippet,
+        });
+    }
+
+    let mut mobile_items: Vec<MobileBannerItem> = Vec::new();
+    for (idx, (unit_id, link_unit_id)) in mobile_units.into_iter().enumerate() {
+        let id = format!("mobile-320x100-{}", idx + 1);
+        let snippet = format!(
+            "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' \
+             data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
+            unit_id, link_unit_id
+        );
+        mobile_items.push(MobileBannerItem {
+            id,
+            enabled: true,
+            maxWidth: 768,
+            closeable: true,
+            snippet,
+        });
+    }
+
+    SideBannerJsonMulti { side: side_items, mobile: mobile_items }
+}
+
+// ---------------- 로직: 배너/텍스트 생성 ----------------
+
+/// 검색 결과 → 사이드/모바일 배너 JSON (좌측 링크 딥링크 강제)
+async fn build_side_banner_from_products(
+    client: &CoupangApiClient,
+    products: &[ProductItem],
+    right_unit_id: &str,
+    right_link_unit_id: &str,
+    mobile_unit_id: &str,
+    mobile_link_unit_id: &str,
+) -> Result<SideBannerJson> {
+    let pick = products.iter().find(|p| {
+        p.product_url
+            .as_deref()
+            .map(|u| is_detailish(u))
+            .unwrap_or(false)
+    });
+    let p = pick.ok_or_else(|| anyhow::anyhow!("상세 상품 URL이 포함된 검색 결과가 없습니다."))?;
+
+    let title = truncate_title(p.product_name.as_deref().unwrap_or("상품"), 40);
+    let img = p.product_image.as_deref().unwrap_or("");
+    let url = p.product_url.as_deref().unwrap_or("");
+
+    // ★ to_affiliate 적용
+    let left_link = to_affiliate(client, url).await;
+
+    Ok(build_side_banner_json(
+        &left_link,
+        img,
+        &title,
+        right_unit_id,
+        right_link_unit_id,
+        mobile_unit_id,
+        mobile_link_unit_id,
+    ))
+}
+
+/// 검색/추천 결과 → 텍스트 광고 JSON (모든 URL 딥링크 강제)
+pub async fn products_to_text_ads_json(
+    client: &CoupangApiClient,
+    products: Vec<ProductItem>,
+) -> Result<TextAdsJson> {
+    let mut text_ads = Vec::new();
+    for product in products {
+        if let (Some(name), Some(url)) = (product.product_name.clone(), product.product_url.clone()) {
+            // ★ to_affiliate 적용
+            let final_url = to_affiliate(client, &url).await;
+
+            text_ads.push(TextAdItem {
+                kind: "text".to_string(),
+                url: final_url,
+                content: generate_ad_content(&name),
+                backgroundColor: generate_random_gradient(),
+            });
+        }
+    }
+    Ok(TextAdsJson { ads: text_ads })
+}
+
+/// JSON 저장
+pub fn save_json_to_file<T: serde::Serialize>(data: &T, filename: &str) -> Result<()> {
+    if let Some(parent) = Path::new(filename).parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    let json_string = serde_json::to_string_pretty(data)?;
+    fs::write(filename, json_string)?;
+    println!("JSON 저장: {}", filename);
+    Ok(())
+}
+
 // ---------------- 실행부 ----------------
 
 #[tokio::main]
@@ -1054,101 +947,86 @@ async fn main() -> Result<()> {
 
     println!("완료! ./json 폴더에 생성되었습니다.");
 
-// === 추천 → 텍스트 광고 JSON ===
-// 기준 상품: 앞서 배너용 검색 결과 중 product_id가 있는 첫 상품 사용
-// === 추천 결과로 멀티 사이드/모바일 배너 & 텍스트 광고 생성 ===
-if let Some(base_product) = products_for_banner.iter().find(|p| p.product_id.is_some()) {
-    let base_id = base_product.product_id.unwrap();
-    eprintln!("[BASE] (for RECO) id={}, name={:?}", base_id, base_product.product_name);
+    // === 추천 → 텍스트 광고 & 멀티 배너 JSON ===
+    if let Some(base_product) = products_for_banner.iter().find(|p| p.product_id.is_some()) {
+        let base_id = base_product.product_id.unwrap();
+        eprintln!("[BASE] (for RECO) id={}, name={:?}", base_id, base_product.product_name);
 
-    // 필수 파라미터 로드
-    let device_id = std::env::var("RECO_DEVICE_ID").expect("RECO_DEVICE_ID missing");
-    let lmt       = std::env::var("RECO_LMT").unwrap_or_else(|_| "0".to_string());
-    let image_sz  = std::env::var("RECO_IMAGE_SIZE").unwrap_or_else(|_| "320x320".to_string());
-    let puid      = std::env::var("RECO_PUID").expect("RECO_PUID missing");
-    let sub_id    = std::env::var("RECO_SUB_ID").ok();
+        let device_id = std::env::var("RECO_DEVICE_ID").unwrap_or_else(|_| "38400000-8cf0-11bd-b23e-10b96e40000d".to_string());
+        let lmt       = std::env::var("RECO_LMT").unwrap_or_else(|_| "1".to_string());
+        let image_sz  = std::env::var("RECO_IMAGE_SIZE").unwrap_or_else(|_| "320x320".to_string());
+        let puid      = std::env::var("RECO_PUID").unwrap_or_else(|_| "user-123456".to_string());
+        let sub_id    = std::env::var("RECO_SUB_ID").ok();
 
-    let mut reco_params = HashMap::new();
-    reco_params.insert("productId".to_string(), base_id.to_string());
-    reco_params.insert("limit".to_string(), "16".to_string());   // 필요량 만큼
-    reco_params.insert("deviceId".to_string(), device_id);
-    reco_params.insert("lmt".to_string(), lmt);
-    reco_params.insert("imageSize".to_string(), image_sz);
-    reco_params.insert("puid".to_string(), puid);
-    if let Some(sid) = sub_id { reco_params.insert("subId".to_string(), sid); }
+        let mut reco_params = HashMap::new();
+        reco_params.insert("productId".to_string(), base_id.to_string());
+        reco_params.insert("limit".to_string(), "16".to_string());
+        reco_params.insert("deviceId".to_string(), device_id);
+        reco_params.insert("lmt".to_string(), lmt);
+        reco_params.insert("imageSize".to_string(), image_sz);
+        reco_params.insert("puid".to_string(), puid);
+        if let Some(sid) = sub_id { reco_params.insert("subId".to_string(), sid); }
 
-    // recoType은 빼고 먼저 시도 → 비면 SIMILAR/RELATION 순으로 시도
-    let mut reco_items = client.recommend_products(reco_params.clone()).await?;
-    if reco_items.is_empty() {
-        let mut p = reco_params.clone();
-        p.insert("recoType".to_string(), "SIMILAR".to_string());
-        reco_items = client.recommend_products(p).await?;
-    }
-    if reco_items.is_empty() {
-        let mut p = reco_params.clone();
-        p.insert("recoType".to_string(), "RELATION".to_string());
-        reco_items = client.recommend_products(p).await?;
-    }
-
-    if reco_items.is_empty() {
-        eprintln!("[RECO] 추천 결과 없음(필수 파라미터/카테고리 영향 가능). 멀티 배너/텍스트 생성 스킵");
-    } else {
-        // 1) 추천 결과 상위 N개로 텍스트 광고
-        let textads_limit = 8; // 원하는 개수
-        let reco_top = reco_items.clone().into_iter().take(textads_limit).collect::<Vec<_>>();
-        let reco_text_ads = products_to_text_ads_json(&client, reco_top).await?;
-        save_json_to_file(&reco_text_ads, out_dir.join("text_ads_reco.json").to_str().unwrap())?;
-
-        // 2) 추천 결과로 좌측 배너용 블록 생성 (상위 2개 예시)
-        let mut left_blocks: Vec<(String, String, String)> = Vec::new();
-        for p in reco_items
-            .iter()
-            .filter(|p| p.product_url.is_some())
-            .take(2)
-        {
-            let title = truncate_title(p.product_name.as_deref().unwrap_or("상품"), 40);
-            let img = p.product_image.as_deref().unwrap_or("").to_string();
-            let url = p.product_url.as_deref().unwrap_or("");
-
-            let aff = if is_affiliate_link(url) {
-                url.to_string()
-            } else {
-                match client.create_deeplink_one(url).await {
-                    Ok(d) => d.shorten_url,
-                    Err(_) => url.to_string(),
-                }
-            };
-            left_blocks.push((aff, img, title));
+        let mut reco_items = client.recommend_products(reco_params.clone()).await?;
+        if reco_items.is_empty() {
+            let mut p = reco_params.clone();
+            p.insert("recoType".to_string(), "SIMILAR".to_string());
+            reco_items = client.recommend_products(p).await?;
+        }
+        if reco_items.is_empty() {
+            let mut p = reco_params.clone();
+            p.insert("recoType".to_string(), "RELATION".to_string());
+            reco_items = client.recommend_products(p).await?;
         }
 
-        // 우측/모바일 유닛 여러 개 예시(원하는 만큼 추가)
-        let right_units = vec![
-            (right_unit_id.to_string(), right_link_unit_id.to_string()),
-            ("UNIT_ID_2".to_string(), "LINK_ID_2".to_string()),
-        ];
-        let mobile_units = vec![
-            (mobile_unit_id.to_string(), mobile_link_unit_id.to_string()),
-            ("UNIT_ID_M_2".to_string(), "LINK_ID_M_2".to_string()),
-        ];
-
-        if !left_blocks.is_empty() {
-            let side_multi = build_side_banner_json_multi(left_blocks, right_units, mobile_units);
-            save_json_to_file(
-                &side_multi,
-                out_dir.join("side_mobile_multi_reco.json").to_str().unwrap(),
-            )?;
-            eprintln!("JSON 저장: {}", out_dir.join("side_mobile_multi_reco.json").display());
+        if reco_items.is_empty() {
+            eprintln!("[RECO] 추천 결과 없음(필수 파라미터/카테고리 영향 가능). 멀티 배너/텍스트 생성 스킵");
         } else {
-            eprintln!("[RECO] 좌측 배너에 쓸 추천 상품이 부족합니다(이미지/URL 확인).");
+            // 텍스트 광고 (딥링크 강제)
+            let textads_limit = 8;
+            let reco_top = reco_items.clone().into_iter().take(textads_limit).collect::<Vec<_>>();
+            let reco_text_ads = products_to_text_ads_json(&client, reco_top).await?;
+            save_json_to_file(&reco_text_ads, out_dir.join("text_ads_reco.json").to_str().unwrap())?;
+
+            // 좌측 배너용 블록 (상위 2개 예시) — 딥링크 강제
+            let mut left_blocks: Vec<(String, String, String)> = Vec::new();
+            for p in reco_items
+                .iter()
+                .filter(|p| p.product_url.is_some())
+                .take(2)
+            {
+                let title = truncate_title(p.product_name.as_deref().unwrap_or("상품"), 40);
+                let img = p.product_image.as_deref().unwrap_or("").to_string();
+                let url = p.product_url.as_deref().unwrap_or("");
+                // ★ to_affiliate 적용
+                let aff = to_affiliate(&client, url).await;
+                left_blocks.push((aff, img, title));
+            }
+
+            // 우측/모바일 유닛 여러 개 예시
+            let right_units = vec![
+                (right_unit_id.to_string(), right_link_unit_id.to_string()),
+                ("UNIT_ID_2".to_string(), "LINK_ID_2".to_string()),
+            ];
+            let mobile_units = vec![
+                (mobile_unit_id.to_string(), mobile_link_unit_id.to_string()),
+                ("UNIT_ID_M_2".to_string(), "LINK_ID_M_2".to_string()),
+            ];
+
+            if !left_blocks.is_empty() {
+                let side_multi = build_side_banner_json_multi(left_blocks, right_units, mobile_units);
+                save_json_to_file(
+                    &side_multi,
+                    out_dir.join("side_mobile_multi_reco.json").to_str().unwrap(),
+                )?;
+                eprintln!("JSON 저장: {}", out_dir.join("side_mobile_multi_reco.json").display());
+            } else {
+                eprintln!("[RECO] 좌측 배너에 쓸 추천 상품이 부족합니다(이미지/URL 확인).");
+            }
         }
+    } else {
+        eprintln!("[RECO] 기준 product_id 없음 → 추천 패스");
     }
-} else {
-    eprintln!("[RECO] 기준 product_id 없음 → 추천 패스");
-}
-
-
-
-
 
     Ok(())
 }
@@ -1204,7 +1082,6 @@ mod tests {
     #[tokio::test]
     async fn test_recommend_products_signature_only() {
         let client = CoupangApiClient::new("test-ak".into(), "test-sk".into());
-        // 시그니처 생성 자체가 에러 없이 동작하는지만 간단히 확인
         let sig = client.generate_hmac_signature(
             "GET",
             "/v2/providers/affiliate_open_api/apis/openapi/v2/products/reco?productId=1&limit=10",
