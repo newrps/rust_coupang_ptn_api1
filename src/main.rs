@@ -702,9 +702,9 @@ pub fn build_side_banner_json(
     left_aff_link: &str,
     left_img_src: &str,
     left_img_alt: &str,
-    right_unit_id: &str,
-    right_link_unit_id: &str,
-    mobile_unit_id: &str,
+    right_aff_link: &str,
+    right_img_src: &str,
+    right_img_alt: &str,
     mobile_link_unit_id: &str,
 ) -> SideBannerJson {
     let left_snippet = format!(
@@ -713,13 +713,13 @@ pub fn build_side_banner_json(
     );
 
     let right_snippet = format!(
-        "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
-        right_unit_id, right_link_unit_id
+        "<a href=\"{}\" target=\"_blank\" referrerpolicy=\"unsafe-url\"><img src=\"{}\" alt=\"{}\" width=\"120\" height=\"240\"></a>",
+        right_aff_link, right_img_src, html_escape::encode_text(right_img_alt)
     );
 
     let mobile_snippet = format!(
-        "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
-        mobile_unit_id, mobile_link_unit_id
+        "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_320x100' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
+        mobile_link_unit_id
     );
 
     SideBannerJson {
@@ -758,7 +758,7 @@ pub fn build_text_ads_json(items: Vec<TextAdItem>) -> TextAdsJson {
 /// 여러 개의 좌/우 배너와 여러 개의 모바일 배너를 한 번에 생성
 pub fn build_side_banner_json_multi(
     left_blocks: Vec<(String, String, String)>, // (aff_link, img_src, img_alt)
-    right_units: Vec<(String, String)>,         // (unit_id, link_unit_id)
+    right_units: Vec<(String, String, String)>,         // (unit_id, link_unit_id)
     mobile_units: Vec<(String, String)>,        // (unit_id, link_unit_id)
 ) -> SideBannerJsonMulti {
     let mut side_items: Vec<SideBannerItem> = Vec::new();
@@ -781,12 +781,14 @@ pub fn build_side_banner_json_multi(
         });
     }
 
-    for (idx, (unit_id, link_unit_id)) in right_units.into_iter().enumerate() {
+    for (idx, (aff_link, img_src, img_alt)) in right_units.into_iter().enumerate() {
         let id = format!("right-160x600-{}", idx + 1);
         let snippet = format!(
-            "<ins class='adsbycoupang' data-ad-type='banner' data-ad-img='img_160x600' \
-             data-ad-unit='{}' data-ad-link-unit-id='{}' data-ad-order='5' data-ad-border='false'></ins>",
-            unit_id, link_unit_id
+            "<a href=\"{}\" target=\"_blank\" referrerpolicy=\"unsafe-url\">\
+             <img src=\"{}\" alt=\"{}\" width=\"120\" height=\"240\"></a>",
+            aff_link,
+            img_src,
+            html_escape::encode_text(&img_alt)
         );
         side_items.push(SideBannerItem {
             id,
@@ -848,9 +850,9 @@ async fn build_side_banner_from_products(
         &left_link,
         img,
         &title,
-        right_unit_id,
-        right_link_unit_id,
-        mobile_unit_id,
+        &left_link,
+        img,
+        &title,
         mobile_link_unit_id,
     ))
 }
@@ -993,7 +995,7 @@ async fn main() -> Result<()> {
             for p in reco_items
                 .iter()
                 .filter(|p| p.product_url.is_some())
-                .take(2)
+                .take(5)
             {
                 let title = truncate_title(p.product_name.as_deref().unwrap_or("상품"), 40);
                 let img = p.product_image.as_deref().unwrap_or("").to_string();
@@ -1003,26 +1005,58 @@ async fn main() -> Result<()> {
                 left_blocks.push((aff, img, title));
             }
 
+            let mut right_units: Vec<(String, String, String)> = Vec::new();
+            for p in reco_items
+                .iter()
+                .filter(|p| p.product_url.is_some())
+                .take(5)
+            {
+                let title = truncate_title(p.product_name.as_deref().unwrap_or("상품"), 40);
+                let img = p.product_image.as_deref().unwrap_or("").to_string();
+                let url = p.product_url.as_deref().unwrap_or("");
+                // ★ to_affiliate 적용
+                let aff = to_affiliate(&client, url).await;
+                right_units.push((aff, img, title));
+            }
+/*
             // 우측/모바일 유닛 여러 개 예시
             let right_units = vec![
                 (right_unit_id.to_string(), right_link_unit_id.to_string()),
                 ("UNIT_ID_2".to_string(), "LINK_ID_2".to_string()),
-            ];
+            ];*/
             let mobile_units = vec![
                 (mobile_unit_id.to_string(), mobile_link_unit_id.to_string()),
                 ("UNIT_ID_M_2".to_string(), "LINK_ID_M_2".to_string()),
             ];
 
-            if !left_blocks.is_empty() {
+            let gen_left   = !left_blocks.is_empty();
+            let gen_right  = !right_units.is_empty();
+            let gen_mobile = !mobile_units.is_empty();
+
+            if gen_left || gen_right || gen_mobile {
+                eprintln!(
+                    "[RECO] multi build -> left={}, right={}, mobile={}",
+                    gen_left, gen_right, gen_mobile
+                );
+
                 let side_multi = build_side_banner_json_multi(left_blocks, right_units, mobile_units);
+
+                // 저장 전 구조 요약
+                eprintln!(
+                    "[RECO] side_multi preview: side.len={}, mobile.len={}",
+                    side_multi.side.len(),
+                    side_multi.mobile.len()
+                );
+
                 save_json_to_file(
                     &side_multi,
                     out_dir.join("side_mobile_multi_reco.json").to_str().unwrap(),
                 )?;
                 eprintln!("JSON 저장: {}", out_dir.join("side_mobile_multi_reco.json").display());
             } else {
-                eprintln!("[RECO] 좌측 배너에 쓸 추천 상품이 부족합니다(이미지/URL 확인).");
+                eprintln!("[RECO] 멀티 배너에 넣을 항목이 없습니다. (left/right/mobile 전부 비어있음)");
             }
+
         }
     } else {
         eprintln!("[RECO] 기준 product_id 없음 → 추천 패스");
